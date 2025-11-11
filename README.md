@@ -28,7 +28,7 @@ Add this to your package's `pubspec.yaml` file:
 dependencies:
   flutter_zk:
     git:
-      url: https://github.com/AbdullahAlMamun12/flutter_zk # Replace with your actual repo URL
+      url: https://github.com/AbdullahAlMamun12/flutter_zk 
       ref: main
 ```
 
