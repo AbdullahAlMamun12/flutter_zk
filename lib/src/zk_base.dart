@@ -149,6 +149,7 @@ class ZK {
     ];
   }
 
+  // Updated _handleResponse to handle CMD_DATA responses better
   void _handleResponse(Uint8List data) {
     _incomingBuffer.add(data);
 
@@ -177,13 +178,25 @@ class ZK {
       final responsePayload = buffer.sublist(8, 8 + payloadSize);
       final header = _parseHeader(responsePayload);
       final replyId = header[3];
+      final responseCode = header[0];
 
+      // Handle both command replies and data packets
       if (_pendingReplies.containsKey(replyId)) {
         _pendingReplies[replyId]!.complete(responsePayload);
         _pendingReplies.remove(replyId);
+      } else if (responseCode == CMD_DATA || responseCode == CMD_PREPARE_DATA) {
+        // This might be a data packet for a chunk read
+        // Store it for the next pending reply to pick up
+        print("Received ${responseCode == CMD_DATA ? 'DATA' : 'PREPARE_DATA'} packet with replyId: $replyId");
+
+        // Try to match with any pending reply (sometimes replyId doesn't match exactly)
+        if (_pendingReplies.isNotEmpty) {
+          final firstKey = _pendingReplies.keys.first;
+          _pendingReplies[firstKey]!.complete(responsePayload);
+          _pendingReplies.remove(firstKey);
+        }
       } else {
-        // This could be an event, not a reply to a command
-        print("Received data for unknown replyId: $replyId");
+        print("Received data for unknown replyId: $replyId, code: $responseCode");
       }
 
       // Remove the processed packet from the buffer
@@ -407,77 +420,235 @@ class ZK {
     }
   }
 
+  // Future<Uint8List> _readChunk(int start, int size) async {
+  //   final commandString = ByteData(8);
+  //   commandString.setInt32(0, start, Endian.little);
+  //   commandString.setInt32(4, size, Endian.little);
+  //
+  //
+  //   final response = await _sendCommand(
+  //     1504,
+  //     commandString: commandString.buffer.asUint8List(),
+  //   );
+  //   final responseCode = _parseHeader(response)[0];
+  //
+  //   if (responseCode == CMD_DATA) {
+  //     return response.sublist(8);
+  //   }
+  //   // This is a fallback for devices that might behave differently
+  //   if (response.length > 8) {
+  //     return response.sublist(8);
+  //   }
+  //   throw ZKErrorResponse("Failed to read chunk at $start");
+  // }
+
+
+  // Corrected _readChunk method
+  // Completely rewritten _readChunk
   Future<Uint8List> _readChunk(int start, int size) async {
     final commandString = ByteData(8);
     commandString.setInt32(0, start, Endian.little);
     commandString.setInt32(4, size, Endian.little);
 
+    print("_readChunk: Requesting $size bytes from offset $start");
 
     final response = await _sendCommand(
-      1504,
+      1504, // CMD_READ_BUFFER_CHUNK
       commandString: commandString.buffer.asUint8List(),
     );
-    final responseCode = _parseHeader(response)[0];
+
+    final header = _parseHeader(response);
+    final responseCode = header[0];
+
+    print("_readChunk: Response code: $responseCode, response length: ${response.length}");
 
     if (responseCode == CMD_DATA) {
-      return response.sublist(8);
+      // Data is in the response after the 8-byte header
+      final data = response.sublist(8);
+      print("_readChunk: Returning ${data.length} bytes");
+      return data;
+    } else if (responseCode == CMD_PREPARE_DATA) {
+      // The device is telling us data is coming
+      // We need to wait for the actual CMD_DATA packet
+      print("_readChunk: Got PREPARE_DATA, waiting for DATA packet...");
+
+      // The next packet should be CMD_DATA
+      // Wait for it with a new completer
+      final dataCompleter = Completer<Uint8List>();
+
+      // Set up a temporary listener for the next packet
+      _replyId = (_replyId + 1) % USHRT_MAX;
+      _pendingReplies[_replyId] = dataCompleter;
+
+      try {
+        final dataResponse = await dataCompleter.future.timeout(
+          Duration(seconds: timeout),
+          onTimeout: () {
+            _pendingReplies.remove(_replyId);
+            throw ZKNetworkError("Timeout waiting for DATA packet");
+          },
+        );
+
+        final dataHeader = _parseHeader(dataResponse);
+        final dataCode = dataHeader[0];
+
+        if (dataCode == CMD_DATA) {
+          final data = dataResponse.sublist(8);
+          print("_readChunk: Received DATA packet with ${data.length} bytes");
+          return data;
+        } else {
+          throw ZKErrorResponse("Expected CMD_DATA, got: $dataCode");
+        }
+      } catch (e) {
+        print("_readChunk error: $e");
+        rethrow;
+      }
+    } else if (responseCode == CMD_ACK_OK) {
+      // Sometimes we get ACK_OK with embedded data
+      final data = response.sublist(8);
+      print("_readChunk: Got ACK_OK with ${data.length} bytes");
+      return data;
     }
-    // This is a fallback for devices that might behave differently
-    if (response.length > 8) {
-      return response.sublist(8);
-    }
-    throw ZKErrorResponse("Failed to read chunk at $start");
+
+    throw ZKErrorResponse("Unexpected response code in _readChunk: $responseCode");
   }
 
-  Future<Uint8List> readWithBuffer(
-    int command, {
-    int fct = 0,
-    int ext = 0,
-  }) async {
-    final int maxChunk = 0xFFC0; // 65472 bytes
 
-    // python pack('<bhii', 1, command, fct, ext) -> 11 bytes
+  // Future<Uint8List> readWithBuffer(int command, {int fct = 0, int ext = 0}) async {
+  //   final int maxChunk = 0xFFC0; // 65472 bytes
+  //
+  //   // python pack('<bhii', 1, command, fct, ext) -> 11 bytes
+  //   final commandString = ByteData(11);
+  //   commandString.setUint8(0, 1);
+  //   commandString.setUint16(1, command, Endian.little);
+  //   commandString.setInt32(3, fct, Endian.little);
+  //   commandString.setInt32(7, ext, Endian.little);
+  //
+  //   final response = await _sendCommand(
+  //     1503,
+  //     commandString: commandString.buffer.asUint8List(),
+  //   );
+  //   final responseCode = _parseHeader(response)[0];
+  //   final responseData = response.sublist(8);
+  //
+  //   if (responseCode == CMD_DATA) {
+  //     return responseData;
+  //   }
+  //
+  //   final size = ByteData.sublistView(
+  //     responseData,
+  //     1,
+  //     5,
+  //   ).getUint32(0, Endian.little);
+  //   if (size == 0) return Uint8List(0);
+  //
+  //   final allData = BytesBuilder();
+  //   int start = 0;
+  //
+  //   while (start < size) {
+  //     final chunkSize = (size - start) > maxChunk ? maxChunk : (size - start);
+  //     // final chunkSize = 80;
+  //     final chunk = await _readChunk(start, chunkSize);
+  //     allData.add(chunk);
+  //     start += chunk.length; // Use actual chunk length
+  //   }
+  //
+  //   await freeData();
+  //   return allData.toBytes();
+  // }
+
+  // Add this helper method to safely decode strings with error handling
+
+
+  /// Updated readWithBuffer
+  Future<Uint8List> readWithBuffer(
+      int command, {
+        int fct = 0,
+        int ext = 0,
+      }) async {
+
+    var maxChunk = 65472; // 65472 bytes for TCP
+
+    // Pack: <bhii = 1 byte + 2 bytes + 4 bytes + 4 bytes = 11 bytes
     final commandString = ByteData(11);
     commandString.setUint8(0, 1);
     commandString.setUint16(1, command, Endian.little);
     commandString.setInt32(3, fct, Endian.little);
     commandString.setInt32(7, ext, Endian.little);
 
+    print("readWithBuffer: Sending command $command with fct=$fct, ext=$ext");
+
     final response = await _sendCommand(
-      1503,
+      1503, // CMD_DATA_WRRQ
       commandString: commandString.buffer.asUint8List(),
     );
-    final responseCode = _parseHeader(response)[0];
+
+    final header = _parseHeader(response);
+    final responseCode = header[0];
     final responseData = response.sublist(8);
 
+    print("readWithBuffer: Response code: $responseCode, data length: ${responseData.length}");
+
+    // If we get CMD_DATA directly, return it
     if (responseCode == CMD_DATA) {
+      print("readWithBuffer: Received data directly (${responseData.length} bytes)");
       return responseData;
     }
 
-    final size = ByteData.sublistView(
-      responseData,
-      1,
-      5,
-    ).getUint32(0, Endian.little);
-    if (size == 0) return Uint8List(0);
+    // Read size from bytes 1-4 of responseData (skip first byte)
+    if (responseData.length < 5) {
+      print("readWithBuffer: Response too short: ${responseData.length} bytes");
+      print("Response hex: ${responseData.map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ')}");
+      throw ZKErrorResponse("Response data too short");
+    }
+
+    final size = ByteData.sublistView(responseData, 1, 5).getUint32(0, Endian.little);
+
+    if (size == 0) {
+      print("readWithBuffer: Size is 0, returning empty");
+      return Uint8List(0);
+    }
+
+    print("readWithBuffer: Total size to read: $size bytes");
+
+    // Calculate chunks
+    final remain = size % maxChunk;
+    final packets = (size - remain) ~/ maxChunk;
+
+    print("readWithBuffer: Need $packets chunks of $maxChunk + $remain remainder");
 
     final allData = BytesBuilder();
     int start = 0;
+    int totalRead = 0;
 
-    while (start < size) {
-      final chunkSize = (size - start) > maxChunk ? maxChunk : (size - start);
-      // final chunkSize = 80;
-      final chunk = await _readChunk(start, chunkSize);
+    // Read full chunks
+    for (int i = 0; i < packets; i++) {
+      print("readWithBuffer: Reading chunk ${i + 1}/$packets");
+      final chunk = await _readChunk(start, maxChunk);
       allData.add(chunk);
+      totalRead += chunk.length;
       start += chunk.length; // Use actual chunk length
+      print("readWithBuffer: Read ${chunk.length} bytes, total: $totalRead/$size");
+    }
+
+    // Read remainder
+    if (remain > 0) {
+      print("readWithBuffer: Reading final $remain bytes");
+      final chunk = await _readChunk(start, remain);
+      allData.add(chunk);
+      start += remain;
+      totalRead += chunk.length;
+      print("readWithBuffer: Read ${chunk.length} bytes, total: $totalRead/$size");
     }
 
     await freeData();
-    return allData.toBytes();
+
+    final finalData = allData.toBytes();
+    print("readWithBuffer: Complete! Read ${finalData.length} bytes");
+
+    return finalData;
   }
 
-
-  // Add this helper method to safely decode strings with error handling
   String _decodeString(Uint8List data, {Encoding encoding = utf8}) {
     try {
       final nullPos = data.indexOf(0);
@@ -493,24 +664,37 @@ class ZK {
     }
   }
 
-
+  // Updated getUsers (same as before but with better error handling)
   Future<List<User>> getUsers() async {
     await readSizes();
-    if (usersCount == 0) return [];
 
-    final userData = await readWithBuffer(CMD_USERTEMP_RRQ, fct: FCT_USER);
-
-    if (userData.length <= 4) {
-      print("Warning: Missing user data from device.");
+    if (usersCount == 0) {
+      print("No users found on device");
       return [];
     }
 
-    // Read the total size from first 4 bytes
+    print("Device reports $usersCount users");
+
+    final userData = await readWithBuffer(CMD_USERTEMP_RRQ, fct: FCT_USER);
+
+    print("Received user data: ${userData.length} bytes");
+
+    if (userData.length <= 4) {
+      print("Warning: Insufficient user data");
+      return [];
+    }
+
+    // First 4 bytes = total size
     final totalSize = ByteData.sublistView(userData, 0, 4).getUint32(0, Endian.little);
 
-    if (totalSize == 0 || usersCount == 0) return [];
+    print("Total size from header: $totalSize bytes");
+    print("Buffer length: ${userData.length} bytes");
 
-    // Determine packet size based on totalSize and usersCount
+    if (totalSize == 0) {
+      return [];
+    }
+
+    // Determine packet size
     final calculatedPacketSize = totalSize / usersCount;
 
     if ((calculatedPacketSize - 28).abs() < 1.0) {
@@ -518,37 +702,35 @@ class ZK {
     } else if ((calculatedPacketSize - 72).abs() < 1.0) {
       userPacketSize = 72;
     } else {
-      print("Warning: Unexpected user packet size: $calculatedPacketSize");
-      userPacketSize = 72; // Default fallback
+      print("Warning: Unusual packet size: $calculatedPacketSize");
+      userPacketSize = 72;
     }
 
-    print("Total size: $totalSize, Users: $usersCount, Packet size: $userPacketSize");
-    print("Available data length: ${userData.length}");
+    print("Packet size: $userPacketSize bytes per user");
+
+    // Verify we have enough data
+    final expectedDataSize = 4 + (usersCount * userPacketSize);
+    if (userData.length < expectedDataSize) {
+      print("ERROR: Not enough data! Expected $expectedDataSize, got ${userData.length}");
+      print("This means chunk reading failed.");
+      return [];
+    }
 
     final users = <User>[];
-    var offset = 4; // Skip 4-byte total size header
-    int userIndex = 0;
+    var offset = 4;
 
-    while (offset + userPacketSize <= userData.length && userIndex < usersCount) {
+    for (int i = 0; i < usersCount; i++) {
+      if (offset + userPacketSize > userData.length) {
+        print("Ran out of data at user $i (offset $offset)");
+        break;
+      }
+
       try {
         final userChunk = userData.sublist(offset, offset + userPacketSize);
         final byteData = ByteData.sublistView(userChunk);
 
-        // Debug: print first user's raw bytes
-        if (userIndex == 0) {
-          print("First user raw bytes (hex): ${userChunk.map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ')}");
-        }
-
         if (userPacketSize == 28) {
-          // ZK6 format: <HB5s8sIxBhI
-          // H=uid(2), B=privilege(1), 5s=password(5), 8s=name(8), I=card(4), x=pad(1), B=group(1), h=timezone(2), I=userid(4)
           final uid = byteData.getUint16(0, Endian.little);
-          if (uid == 0 || uid == 0xFFFF) {
-            offset += userPacketSize;
-            userIndex++;
-            continue;
-          }
-
           final privilege = byteData.getUint8(2);
           final passwordBytes = userChunk.sublist(3, 8);
           final nameBytes = userChunk.sublist(8, 16);
@@ -559,44 +741,26 @@ class ZK {
           final password = _decodeString(passwordBytes);
           final name = _decodeString(nameBytes);
 
-          users.add(
-            User(
-              uid: uid,
-              privilege: privilege,
-              password: password,
-              name: name.isNotEmpty ? name : "NN-$userId",
-              card: card,
-              groupId: groupId,
-              userId: userId,
-            ),
-          );
-        } else {
-          // ZK8 format (72 bytes): <HB8s24sIx7sx24s
-          // H=uid(2), B=privilege(1), 8s=password(8), 24s=name(24), I=card(4), x=pad(1), 7s=group(7), x=pad(1), 24s=userid(24)
-          final uid = byteData.getUint16(0, Endian.little);
-          if (uid == 0 || uid == 0xFFFF) {
-            offset += userPacketSize;
-            userIndex++;
-            continue;
+          if (i < 3) {
+            print("User $i: uid=$uid, name='$name', userId=$userId");
           }
 
+          users.add(User(
+            uid: uid,
+            privilege: privilege,
+            password: password,
+            name: name.isNotEmpty ? name : "NN-$userId",
+            card: card,
+            groupId: groupId,
+            userId: userId,
+          ));
+        } else {
+          final uid = byteData.getUint16(0, Endian.little);
           final privilege = byteData.getUint8(2);
-
-          // Offset 3: password (8 bytes)
           final passwordBytes = userChunk.sublist(3, 11);
-
-          // Offset 11: name (24 bytes)
           final nameBytes = userChunk.sublist(11, 35);
-
-          // Offset 35: card (4 bytes)
           final card = byteData.getUint32(35, Endian.little);
-
-          // Offset 39: padding (1 byte) - skip
-          // Offset 40: group_id (7 bytes)
           final groupIdBytes = userChunk.sublist(40, 47);
-
-          // Offset 47: padding (1 byte) - skip
-          // Offset 48: user_id (24 bytes)
           final userIdBytes = userChunk.sublist(48, 72);
 
           final password = _decodeString(passwordBytes);
@@ -604,39 +768,30 @@ class ZK {
           final groupId = _decodeString(groupIdBytes);
           final userId = _decodeString(userIdBytes);
 
-          users.add(
-            User(
-              uid: uid,
-              privilege: privilege,
-              password: password,
-              name: name.isNotEmpty ? name : "NN-$userId",
-              card: card,
-              groupId: groupId,
-              userId: userId.isNotEmpty ? userId : uid.toString(),
-            ),
-          );
-        }
+          if (i < 3) {
+            print("User $i: uid=$uid, name='$name', userId='$userId'");
+          }
 
-        offset += userPacketSize;
-        userIndex++;
+          users.add(User(
+            uid: uid,
+            privilege: privilege,
+            password: password,
+            name: name.isNotEmpty ? name : "NN-$userId",
+            card: card,
+            groupId: groupId,
+            userId: userId.isNotEmpty ? userId : uid.toString(),
+          ));
+        }
       } catch (e) {
-        print("Error parsing user at offset $offset (index $userIndex): $e");
-        // Skip this user and continue
-        offset += userPacketSize;
-        userIndex++;
-        continue;
+        print("Error parsing user $i: $e");
       }
+
+      offset += userPacketSize;
     }
 
-    print("Successfully parsed ${users.length} users out of $usersCount");
+    print("Successfully parsed ${users.length} users");
     return users;
   }
-
-
-
-
-
-
 
   Future<List<Attendance>> getAttendance() async {
     // This command also uses buffered data transfer, which is complex.
