@@ -12,15 +12,15 @@ import 'mixins/network_mixin.dart';
 /// including connecting, fetching data, managing users, and controlling
 /// device operations. It is composed of several mixins, each handling a
 /// specific area of functionality.
-class ZK
-    with
-        ConnectionMixin,
-        NetworkMixin,
-        DeviceControlMixin,
-        DeviceInformationMixin,
-        UserManagementMixin,
-        AttendanceMixin,
-        DataManagementMixin {
+class ZK with
+    ConnectionMixin,
+    NetworkMixin,
+    DeviceControlMixin,
+    DeviceInformationMixin,
+    UserManagementMixin,
+    AttendanceMixin,
+    DataManagementMixin {
+
   @override
   final String ip;
 
