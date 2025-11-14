@@ -19,8 +19,7 @@ class _MyAppState extends State<MyApp> {
   List<User> _users = [];
   List<Attendance> _attendances = [];
   bool _isLoading = false;
-  String _currentView =
-      'deviceInfo'; // 'deviceInfo', 'users', 'attendances'
+  String _currentView = 'deviceInfo'; // 'deviceInfo', 'users', 'attendances'
 
   Future<void> _getDeviceInfo() async {
     setState(() {
@@ -39,7 +38,7 @@ class _MyAppState extends State<MyApp> {
 
       setState(() {
         _status =
-        'Connected!\nFirmware: $firmware\nSerial: $serial\nDevice Time: $time';
+            'Connected!\nFirmware: $firmware\nSerial: $serial\nDevice Time: $time';
         _isLoading = false;
       });
     } catch (e) {
@@ -118,9 +117,7 @@ class _MyAppState extends State<MyApp> {
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
       home: Scaffold(
-        appBar: AppBar(
-          title: const Text('ZK Example'),
-        ),
+        appBar: AppBar(title: const Text('ZK Example')),
         body: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
@@ -160,36 +157,37 @@ class _MyAppState extends State<MyApp> {
                                     ),
                                   ),
 
-
                                   SizedBox(
-                                      width: 170,
-                                      child: Text('Privilege: ${user.privilege}')),
+                                    width: 170,
+                                    child: Text('Privilege: ${user.privilege}'),
+                                  ),
                                 ],
                               ),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('User ID: ${user.userId}'),
-                                    Text('UID: ${user.uid}'),
-                                  ],
-                                ),
-                                SizedBox(
-                                  width: 170,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Text('Card: ${user.card}'),
-                                      Text('password: ${user.password}'),
+                                      Text('User ID: ${user.userId}'),
+                                      Text('UID: ${user.uid}'),
                                     ],
                                   ),
-                                )
-                              ],)
-
-
-
+                                  SizedBox(
+                                    width: 170,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text('Card: ${user.card}'),
+                                        Text('password: ${user.password}'),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ],
                           ),
                         ),
@@ -198,41 +196,41 @@ class _MyAppState extends State<MyApp> {
                   ),
                 )
               else if (_currentView == 'attendances')
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: _attendances.length,
-                      itemBuilder: (context, index) {
-                        final attendance = _attendances[index];
-                        return Card(
-                          margin: const EdgeInsets.symmetric(vertical: 8.0),
-                          elevation: 2.0,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'User ID: ${attendance.userId}',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18.0,
-                                  ),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: _attendances.length,
+                    itemBuilder: (context, index) {
+                      final attendance = _attendances[index];
+                      return Card(
+                        margin: const EdgeInsets.symmetric(vertical: 8.0),
+                        elevation: 2.0,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'User ID: ${attendance.userId}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18.0,
                                 ),
-                                const SizedBox(height: 4.0),
-                                Text(
-                                    'Timestamp: ${attendance.timestamp.toLocal().toString().split('.')[0]}'),
-                                Text('Status: ${attendance.status}'),
-                                Text('Punch: ${attendance.punch}'),
-                              ],
-                            ),
+                              ),
+                              const SizedBox(height: 4.0),
+                              Text(
+                                'Timestamp: ${attendance.timestamp.toLocal().toString().split('.')[0]}',
+                              ),
+                              Text('Status: ${attendance.status}'),
+                              Text('Punch: ${attendance.punch}'),
+                            ],
                           ),
-                        );
-                      },
-                    ),
-                  )
-                else
-                  const SizedBox
-                      .shrink(), // Or display device info here if desired
+                        ),
+                      );
+                    },
+                  ),
+                )
+              else
+                const SizedBox.shrink(), // Or display device info here if desired
             ],
           ),
         ),
