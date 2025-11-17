@@ -10,6 +10,7 @@ import 'connection_mixin.dart';
 import 'network_mixin.dart';
 import 'device_information_mixin.dart';
 import 'device_control_mixin.dart';
+import '../utils/logger.dart';
 
 /// Provides methods for managing users on the device.
 mixin UserManagementMixin
@@ -30,18 +31,18 @@ mixin UserManagementMixin
     await readSizes();
 
     if (usersCount == 0) {
-      debugPrint("No users found on device");
+      debugLog("No users found on device");
       return [];
     }
 
-    debugPrint("Device reports $usersCount users");
+    debugLog("Device reports $usersCount users");
 
     final userData = await readWithBuffer(CMD_USERTEMP_RRQ, fct: FCT_USER);
 
-    debugPrint("Received user data: ${userData.length} bytes");
+    debugLog("Received user data: ${userData.length} bytes");
 
     if (userData.length <= 4) {
-      debugPrint("Warning: Insufficient user data");
+      debugLog("Warning: Insufficient user data");
       return [];
     }
 
@@ -50,7 +51,7 @@ mixin UserManagementMixin
       0,
       4,
     ).getUint32(0, Endian.little);
-    debugPrint("Total size from header: $totalSize bytes");
+    debugLog("Total size from header: $totalSize bytes");
 
     if (totalSize == 0) {
       return [];
@@ -62,13 +63,13 @@ mixin UserManagementMixin
     } else if ((calculatedPacketSize - 72).abs() < 1.0) {
       userPacketSize = 72;
     } else {
-      debugPrint(
+      debugLog(
         "Warning: Unusual packet size: $calculatedPacketSize, using 72",
       );
       userPacketSize = 72;
     }
 
-    debugPrint("Using packet size: $userPacketSize bytes per user");
+    debugLog("Using packet size: $userPacketSize bytes per user");
 
     final users = <User>[];
     var offset = 4;
@@ -132,13 +133,13 @@ mixin UserManagementMixin
           );
         }
       } catch (e) {
-        debugPrint("Error parsing user $i: $e");
+        debugLog("Error parsing user $i: $e");
       }
 
       offset += userPacketSize;
     }
 
-    debugPrint("Successfully parsed ${users.length} users");
+    debugLog("Successfully parsed ${users.length} users");
     return users;
   }
 

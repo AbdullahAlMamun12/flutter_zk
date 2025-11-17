@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../zk_constants.dart';
 import '../exceptions.dart';
+import '../utils/logger.dart';
 
 /// Handles the low-level TCP/IP connection and communication with the ZKTeco device.
 mixin ConnectionMixin {
@@ -111,13 +112,13 @@ mixin ConnectionMixin {
           handleResponse,
           onError: (error) {
             if (isConnected) {
-              debugPrint("Socket error: $error");
+              debugLog("Socket error: $error");
               disconnect();
             }
           },
           onDone: () {
             if (isConnected) {
-              debugPrint("Socket closed by remote");
+              debugLog("Socket closed by remote");
               disconnect();
             }
           },
@@ -164,7 +165,7 @@ mixin ConnectionMixin {
     try {
       await sendCommand(CMD_EXIT, bypassConnectionCheck: true);
     } catch (e) {
-      debugPrint("Error during disconnect: $e");
+      debugLog("Error during disconnect: $e");
     } finally {
       await socketSubscription?.cancel();
       tcpSocket?.destroy();
@@ -383,7 +384,7 @@ mixin ConnectionMixin {
 
       if (magic1 != MACHINE_PREPARE_DATA_1 ||
           magic2 != MACHINE_PREPARE_DATA_2) {
-        debugPrint("Error: Invalid TCP packet received. Clearing buffer.");
+        debugLog("Error: Invalid TCP packet received. Clearing buffer.");
         incomingBuffer.clear();
         break;
       }
@@ -395,14 +396,14 @@ mixin ConnectionMixin {
       final replyId = header[3];
       final responseCode = header[0];
 
-      debugPrint(
+      debugLog(
         "Received packet - Code: $responseCode, ReplyId: $replyId, PayloadSize: $payloadSize",
       );
 
       if (responseCode == CMD_DATA &&
           dataPacketCompleter != null &&
           !dataPacketCompleter!.isCompleted) {
-        debugPrint(
+        debugLog(
           "Completing data packet completer with ${responsePayload.length} bytes",
         );
         dataPacketCompleter!.complete(responsePayload);
@@ -410,14 +411,14 @@ mixin ConnectionMixin {
         pendingReplies[replyId]!.complete(responsePayload);
         pendingReplies.remove(replyId);
       } else if (pendingReplies.isNotEmpty) {
-        debugPrint(
+        debugLog(
           "Warning: ReplyId mismatch. Expected one of ${pendingReplies.keys}, got $replyId",
         );
         final firstKey = pendingReplies.keys.first;
         pendingReplies[firstKey]!.complete(responsePayload);
         pendingReplies.remove(firstKey);
       } else {
-        debugPrint(
+        debugLog(
           "Warning: Received response with no pending completer - Code: $responseCode, ReplyId: $replyId",
         );
       }

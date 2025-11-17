@@ -9,6 +9,7 @@ import '../models/attendance.dart';
 import 'connection_mixin.dart';
 import 'network_mixin.dart';
 import 'device_information_mixin.dart';
+import '../utils/logger.dart';
 
 /// Provides methods for retrieving attendance records from the device.
 mixin AttendanceMixin on ConnectionMixin, NetworkMixin, DeviceInformationMixin {
@@ -35,16 +36,16 @@ mixin AttendanceMixin on ConnectionMixin, NetworkMixin, DeviceInformationMixin {
     await readSizes();
 
     if (recordsCount == 0) {
-      debugPrint("No attendance records found on device");
+      debugLog("No attendance records found on device");
       return [];
     }
 
     final attendanceData = await readWithBuffer(CMD_ATTLOG_RRQ);
 
-    debugPrint("Received attendance data: ${attendanceData.length} bytes");
+    debugLog("Received attendance data: ${attendanceData.length} bytes");
 
     if (attendanceData.length <= 4) {
-      debugPrint("Warning: Insufficient attendance data");
+      debugLog("Warning: Insufficient attendance data");
       return [];
     }
 
@@ -53,14 +54,14 @@ mixin AttendanceMixin on ConnectionMixin, NetworkMixin, DeviceInformationMixin {
       0,
       4,
     ).getUint32(0, Endian.little);
-    debugPrint("Total size from header: $totalSize bytes");
+    debugLog("Total size from header: $totalSize bytes");
 
     if (totalSize == 0) {
       return [];
     }
 
     final recordSize = totalSize / recordsCount;
-    debugPrint("Record size: $recordSize bytes per record");
+    debugLog("Record size: $recordSize bytes per record");
 
     var attendances = <Attendance>[];
     var offset = 4;
@@ -129,7 +130,7 @@ mixin AttendanceMixin on ConnectionMixin, NetworkMixin, DeviceInformationMixin {
       }
     }
 
-    debugPrint("Successfully parsed ${attendances.length} attendance records");
+    debugLog("Successfully parsed ${attendances.length} attendance records");
 
     final now = DateTime.now();
     fromDate ??= DateTime(now.year, now.month, 1);

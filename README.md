@@ -10,7 +10,25 @@ A Flutter plugin to connect and interact with ZKTeco biometric attendance device
   - Firmware Version
   - Serial Number
   - Device Time
-- Fetch user data from the device.
+  - Platform
+  - MAC Address
+  - Device Name
+  - Face and Fingerprint Algorithm Versions
+  - Network Parameters (IP, Subnet Mask, Gateway)
+- Manage users:
+  - Fetch user data from the device.
+  - Add and update users.
+  - Delete users.
+- Fetch attendance records from the device.
+- Control device operations:
+  - Enable/Disable device.
+  - Restart/Power off device.
+  - Refresh data.
+  - Unlock doors.
+  - Play voice messages.
+- Manage data:
+  - Clear all data.
+  - Clear attendance records.
 - Disconnect gracefully.
 - Robust error handling.
 
@@ -26,10 +44,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  flutter_zk:
-    git:
-      url: https://github.com/AbdullahAlMamun12/flutter_zk 
-      ref: main
+  flutter_zk: ^1.0.0 
 ```
 
 Then, run `flutter pub get` in your terminal.
@@ -40,6 +55,7 @@ Here is a basic example of how to use the `flutter_zk` package.
 
 ```dart
 import 'package:flutter_zk/flutter_zk.dart';
+import 'package:flutter_zk/src/utils/logger.dart'; // Import the custom logger
 
 void main() async {
   final zk = ZK('192.168.1.201', port: 4370, password: 0);
@@ -47,30 +63,30 @@ void main() async {
   try {
     // Connect to the device
     await zk.connect();
-    print('Connected to device.');
+    debugLog('Connected to device.');
 
     // Get firmware version
     final firmware = await zk.getFirmwareVersion();
-    print('Firmware Version: $firmware');
+    debugLog('Firmware Version: $firmware');
 
     // Get serial number
     final serial = await zk.getSerialNumber();
-    print('Serial Number: $serial');
+    debugLog('Serial Number: $serial');
 
     // Get all users
-    print('Fetching users...');
+    debugLog('Fetching users...');
     final users = await zk.getUsers();
-    print('Found ${users.length} users.');
+    debugLog('Found ${users.length} users.');
     for (var user in users) {
-      print('- UID: ${user.uid}, UserID: ${user.userId}, Name: ${user.name}');
+      debugLog('- UID: ${user.uid}, UserID: ${user.userId}, Name: ${user.name}');
     }
 
   } catch (e) {
-    print('An error occurred: $e');
+    debugLog('An error occurred: $e', error: e);
   } finally {
     // Always ensure to disconnect
     await zk.disconnect();
-    print('Disconnected from device.');
+    debugLog('Disconnected from device.');
   }
 }
 ```
@@ -90,20 +106,32 @@ Creates a new `ZK` instance.
 - `Future<void> disconnect()`: Closes the connection to the device.
 - `Future<String> getFirmwareVersion()`: Retrieves the device's firmware version.
 - `Future<String> getSerialNumber()`: Retrieves the device's serial number.
+- `Future<String> getPlatform()`: Retrieves the device's platform information.
+- `Future<String> getMacAddress()`: Retrieves the device's MAC address.
+- `Future<String> getDeviceName()`: Retrieves the device's name.
+- `Future<int?> getFaceVersion()`: Retrieves the face recognition algorithm version.
+- `Future<int> getFingerprintVersion()`: Retrieves the fingerprint algorithm version.
+- `Future<Map<String, String>> getNetworkParams()`: Retrieves the network parameters (IP, subnet mask, gateway) of the device.
 - `Future<DateTime> getTime()`: Retrieves the current time from the device.
+- `Future<void> setTime(DateTime timestamp)`: Sets the time on the device.
 - `Future<List<User>> getUsers()`: Fetches a list of all users registered on the device.
+- `Future<void> setUser({int? uid, String name, int privilege, String password, String groupId, String? userId, int card})`: Creates a new user or updates an existing user on the device.
+- `Future<void> deleteUser({int? uid, String? userId})`: Deletes a user from the device.
+- `Future<List<Attendance>> getAttendance({DateTime? fromDate, DateTime? toDate, String sort})`: Retrieves attendance records from the device.
+- `Future<void> enableDevice()`: Enables the device, allowing it to accept user input and perform operations.
+- `Future<void> disableDevice()`: Disables the device, preventing it from accepting user input.
+- `Future<void> restart()`: Restarts the device.
+- `Future<void> powerOff()`: Powers off the device.
+- `Future<void> refreshData()`: Refreshes the device's internal data.
+- `Future<void> unlock({int time})`: Unlocks the door connected to the device's relay.
+- `Future<bool> testVoice({int index})`: Plays a pre-recorded voice message on the device.
+- `Future<void> clearData()`: Clears all data from the device.
+- `Future<void> clearAttendance()`: Clears all attendance records from the device.
 
-## Error Handling
-
-The package uses custom exceptions for error handling:
-- `ZKNetworkError`: Thrown for socket-level or network-related issues (e.g., connection timeout, host not reachable).
-- `ZKErrorConnection`: Thrown for state-related connection errors (e.g., trying to send a command before connecting).
-- `ZKErrorResponse`: Thrown when the device returns an unexpected or error response to a command.
 
 It is recommended to wrap calls to the library in a `try...catch` block.
 
 ## Additional information
 
-This package is currently under development. More features, such as fetching attendance records and managing users, will be added in the future.
 
 To file issues or contribute to the package, please visit the [GitHub repository](https://github.com/AbdullahAlMamun12/flutter_zk).

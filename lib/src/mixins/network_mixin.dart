@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../zk_constants.dart';
 import '../exceptions.dart';
 import 'connection_mixin.dart';
+import '../utils/logger.dart';
 
 /// Provides methods for handling network-level data transfer, including
 /// reading device capacity and handling large data packets.
@@ -59,7 +60,7 @@ mixin NetworkMixin on ConnectionMixin {
     commandString.setInt32(0, start, Endian.little);
     commandString.setInt32(4, size, Endian.little);
 
-    debugPrint("_readChunk: Requesting $size bytes from offset $start");
+    debugLog("_readChunk: Requesting $size bytes from offset $start");
 
     dataPacketCompleter = Completer<Uint8List>();
     final localCompleter = dataPacketCompleter!;
@@ -72,15 +73,15 @@ mixin NetworkMixin on ConnectionMixin {
     final header = parseHeader(response);
     final responseCode = header[0];
 
-    debugPrint("_readChunk: Initial response code: $responseCode");
+    debugLog("_readChunk: Initial response code: $responseCode");
 
     if (responseCode == CMD_DATA) {
       final data = response.sublist(8);
-      debugPrint("_readChunk: Got data directly (${data.length} bytes)");
+      debugLog("_readChunk: Got data directly (${data.length} bytes)");
       dataPacketCompleter = null;
       return data;
     } else if (responseCode == CMD_PREPARE_DATA) {
-      debugPrint("_readChunk: Got PREPARE_DATA, waiting for CMD_DATA...");
+      debugLog("_readChunk: Got PREPARE_DATA, waiting for CMD_DATA...");
 
       try {
         final dataResponse = await localCompleter.future.timeout(
@@ -98,19 +99,19 @@ mixin NetworkMixin on ConnectionMixin {
 
         if (dataCode == CMD_DATA) {
           final data = dataResponse.sublist(8);
-          debugPrint("_readChunk: Received CMD_DATA with ${data.length} bytes");
+          debugLog("_readChunk: Received CMD_DATA with ${data.length} bytes");
           return data;
         } else {
           throw ZKErrorResponse("Expected CMD_DATA, got: $dataCode");
         }
       } catch (e) {
         dataPacketCompleter = null;
-        debugPrint("_readChunk error: $e");
+        debugLog("_readChunk error: $e");
         rethrow;
       }
     } else if (responseCode == CMD_ACK_OK) {
       final data = response.sublist(8);
-      debugPrint("_readChunk: Got ACK_OK with ${data.length} bytes");
+      debugLog("_readChunk: Got ACK_OK with ${data.length} bytes");
       dataPacketCompleter = null;
       return data;
     }
@@ -139,7 +140,7 @@ mixin NetworkMixin on ConnectionMixin {
     commandString.setInt32(3, fct, Endian.little);
     commandString.setInt32(7, ext, Endian.little);
 
-    debugPrint(
+    debugLog(
       "readWithBuffer: Sending command $command with fct=$fct, ext=$ext",
     );
 
@@ -152,19 +153,19 @@ mixin NetworkMixin on ConnectionMixin {
     final responseCode = header[0];
     final responseData = response.sublist(8);
 
-    debugPrint(
+    debugLog(
       "readWithBuffer: Response code: $responseCode, data length: ${responseData.length}",
     );
 
     if (responseCode == CMD_DATA) {
-      debugPrint(
+      debugLog(
         "readWithBuffer: Received data directly (${responseData.length} bytes)",
       );
       return responseData;
     }
 
     if (responseData.length < 5) {
-      debugPrint(
+      debugLog(
         "readWithBuffer: Response too short: ${responseData.length} bytes",
       );
       throw ZKErrorResponse("Response data too short");
@@ -177,16 +178,16 @@ mixin NetworkMixin on ConnectionMixin {
     ).getUint32(0, Endian.little);
 
     if (size == 0) {
-      debugPrint("readWithBuffer: Size is 0, returning empty");
+      debugLog("readWithBuffer: Size is 0, returning empty");
       return Uint8List(0);
     }
 
-    debugPrint("readWithBuffer: Total size to read: $size bytes");
+    debugLog("readWithBuffer: Total size to read: $size bytes");
 
     final remain = size % maxChunk;
     final packets = (size - remain) ~/ maxChunk;
 
-    debugPrint(
+    debugLog(
       "readWithBuffer: Need $packets full chunks + $remain remainder bytes",
     );
 
@@ -194,13 +195,13 @@ mixin NetworkMixin on ConnectionMixin {
     int start = 0;
 
     for (int i = 0; i < packets; i++) {
-      debugPrint(
+      debugLog(
         "readWithBuffer: Reading chunk ${i + 1}/$packets (offset: $start, size: $maxChunk)",
       );
       final chunk = await readChunk(start, maxChunk);
       allData.add(chunk);
       start += chunk.length;
-      debugPrint(
+      debugLog(
         "readWithBuffer: Chunk ${i + 1} complete, read ${chunk.length} bytes, total: $start/$size",
       );
 
@@ -208,13 +209,13 @@ mixin NetworkMixin on ConnectionMixin {
     }
 
     if (remain > 0) {
-      debugPrint(
+      debugLog(
         "readWithBuffer: Reading final chunk (offset: $start, size: $remain)",
       );
       final chunk = await readChunk(start, remain);
       allData.add(chunk);
       start += chunk.length;
-      debugPrint(
+      debugLog(
         "readWithBuffer: Final chunk complete, read ${chunk.length} bytes, total: $start/$size",
       );
     }
@@ -222,7 +223,7 @@ mixin NetworkMixin on ConnectionMixin {
     await freeData();
 
     final finalData = allData.toBytes();
-    debugPrint(
+    debugLog(
       "readWithBuffer: Complete! Total bytes read: ${finalData.length}",
     );
 

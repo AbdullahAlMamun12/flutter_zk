@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../zk_constants.dart';
 import '../exceptions.dart';
 import 'connection_mixin.dart';
+import '../utils/logger.dart';
 
 /// Provides methods for retrieving information and settings from the device.
 mixin DeviceInformationMixin on ConnectionMixin {
@@ -19,7 +20,7 @@ mixin DeviceInformationMixin on ConnectionMixin {
       final validData = data.sublist(0, endPos);
       return encoding.decode(validData).trim();
     } catch (e) {
-      debugPrint("Error decoding string: $e");
+      debugLog("Error decoding string: $e");
       return "";
     }
   }
@@ -167,7 +168,7 @@ mixin DeviceInformationMixin on ConnectionMixin {
         ipAddr = ipParts[1];
       }
     } catch (e) {
-      debugPrint("Error getting IP: $e");
+      debugLog("Error getting IP: $e");
     }
 
     try {
@@ -181,7 +182,7 @@ mixin DeviceInformationMixin on ConnectionMixin {
         mask = maskParts[1];
       }
     } catch (e) {
-      debugPrint("Error getting NetMask: $e");
+      debugLog("Error getting NetMask: $e");
     }
 
     try {
@@ -195,7 +196,7 @@ mixin DeviceInformationMixin on ConnectionMixin {
         gateway = gateParts[1];
       }
     } catch (e) {
-      debugPrint("Error getting Gateway: $e");
+      debugLog("Error getting Gateway: $e");
     }
 
     return {'ip': ipAddr, 'mask': mask, 'gateway': gateway};
