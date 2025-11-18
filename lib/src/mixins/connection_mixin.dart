@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart';
 
 import '../zk_constants.dart';
 import '../exceptions.dart';
@@ -354,8 +353,9 @@ mixin ConnectionMixin {
   /// Parses the 8-byte header from a response packet.
   /// (Internal use only)
   List<int> parseHeader(Uint8List data) {
-    if (data.length < 8)
+    if (data.length < 8) {
       throw ZKErrorResponse("Invalid header length: ${data.length}");
+    }
     final headerData = ByteData.sublistView(data, 0, 8);
     return [
       headerData.getUint16(0, Endian.little), // command

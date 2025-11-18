@@ -32,6 +32,17 @@ A Flutter plugin to connect and interact with ZKTeco biometric attendance device
 - Disconnect gracefully.
 - Robust error handling.
 
+## Platform Support
+
+This package supports the following platforms:
+- ✅ Android
+- ✅ iOS
+- ✅ Windows
+- ✅ Linux
+- ✅ macOS
+- ❌ Web (Not supported - requires direct TCP socket access)
+
+**Note**: Web platform is intentionally not supported as browsers do not allow direct TCP socket connections for security reasons. This is a limitation of the web platform, not the package.
 ## Getting started
 
 ### Prerequisites
