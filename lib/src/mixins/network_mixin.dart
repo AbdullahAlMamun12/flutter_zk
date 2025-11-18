@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart';
-
 import '../zk_constants.dart';
 import '../exceptions.dart';
 import 'connection_mixin.dart';

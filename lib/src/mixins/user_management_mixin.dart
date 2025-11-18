@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart';
-
 import '../zk_constants.dart';
 import '../exceptions.dart';
 import '../models/user.dart';
@@ -72,11 +70,9 @@ mixin UserManagementMixin
     final users = <User>[];
     var offset = 4;
 
-    for (
-      int i = 0;
-      i < usersCount && offset + userPacketSize <= userData.length;
-      i++
-    ) {
+    for (int i = 0;
+        i < usersCount && offset + userPacketSize <= userData.length;
+        i++) {
       try {
         final userChunk = userData.sublist(offset, offset + userPacketSize);
         final byteData = ByteData.sublistView(userChunk);
