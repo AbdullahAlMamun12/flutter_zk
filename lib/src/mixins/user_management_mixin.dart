@@ -70,11 +70,9 @@ mixin UserManagementMixin
     final users = <User>[];
     var offset = 4;
 
-    for (
-      int i = 0;
-      i < usersCount && offset + userPacketSize <= userData.length;
-      i++
-    ) {
+    for (int i = 0;
+        i < usersCount && offset + userPacketSize <= userData.length;
+        i++) {
       try {
         final userChunk = userData.sublist(offset, offset + userPacketSize);
         final byteData = ByteData.sublistView(userChunk);
