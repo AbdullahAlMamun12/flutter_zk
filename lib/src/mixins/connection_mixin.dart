@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
-
 import '../zk_constants.dart';
 import '../exceptions.dart';
 import '../utils/logger.dart';

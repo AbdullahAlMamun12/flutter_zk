@@ -223,9 +223,7 @@ mixin NetworkMixin on ConnectionMixin {
     await freeData();
 
     final finalData = allData.toBytes();
-    debugLog(
-      "readWithBuffer: Complete! Total bytes read: ${finalData.length}",
-    );
+    debugLog("readWithBuffer: Complete! Total bytes read: ${finalData.length}");
 
     return finalData;
   }

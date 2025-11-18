@@ -63,9 +63,7 @@ mixin UserManagementMixin
     } else if ((calculatedPacketSize - 72).abs() < 1.0) {
       userPacketSize = 72;
     } else {
-      debugLog(
-        "Warning: Unusual packet size: $calculatedPacketSize, using 72",
-      );
+      debugLog("Warning: Unusual packet size: $calculatedPacketSize, using 72");
       userPacketSize = 72;
     }
 
