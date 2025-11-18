@@ -1,13 +1,13 @@
 name: flutter_zk
 description: "An unofficial library of zksoftware (zkteco family) attendance machine."
-version: 1.0.1
+version: 1.0.2
 homepage: "https://github.com/AbdullahAlMamun12/flutter_zk"
 repository: "https://github.com/AbdullahAlMamun12/flutter_zk"
 issue_tracker: "https://github.com/AbdullahAlMamun12/flutter_zk/issues"
 
 environment:
-  sdk: ^3.9.2
-  flutter: ">=1.17.0"
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.10.0"
 
 dependencies:
   flutter:
