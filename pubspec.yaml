@@ -24,16 +24,9 @@ dev_dependencies:
 # following page: https://dart.dev/tools/pub/pubspec
 
 # The following section is specific to Flutter packages.
-flutter:
-  plugin:
-    platforms:
-      android:
-        default_package: flutter_zk
-      ios:
-        default_package: flutter_zk
-      windows:
-        default_package: flutter_zk
-      linux:
-        default_package: flutter_zk
-      macos:
-        default_package: flutter_zk
+platforms:
+  android:
+  ios:
+  windows:
+  linux:
+  macos:
