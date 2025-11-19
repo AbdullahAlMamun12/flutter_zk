@@ -15,7 +15,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   String _status = 'Not Connected';
-  final ZK zk = ZK('10.22.0.2');
+  final ZK zk = ZK('192.168.0.2');
   List<User> _users = [];
   List<Attendance> _attendances = [];
   bool _isLoading = false;
